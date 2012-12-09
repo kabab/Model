@@ -31,6 +31,15 @@
 		 */
 		public $id = null;
 
+		/**
+		 * this variable will be changed
+		 * when you call paginate function 
+		 * it will contain the number of 
+		 * pages it depend on the first @param 
+		 * in paginate function
+		 */
+		public $page_num = 1;
+
 		function __construct(){
 			parent::__construct();
 		}
@@ -210,12 +219,20 @@
 		}
 
 		/**
-		* @param int rows number
-		* @param int page number
-		* @return array
+		 * paginate method will return an array 
+		 * that contain row in specific page
+		 * to split the pages you need to fill
+		 * row parameter 
+		 * @param int rows number
+		 * @param int page number
+		 * @param array conditions 
+		 * @param array fields
+		 * @return array
 		*/
 
-		function paginate($row,$page=0){
-			$re = $this->getWhere();
+		function paginate($row,$page=0,$condition=array('1' => '1'),$field=null){
+			$offset = $page*$row;
+			$this->page_num = ceil($this->getRowsNumber()/ $row);
+			return $this->getWhere($condition,$field,$row,$offset);
 		}
 	}
