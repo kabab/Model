@@ -43,9 +43,9 @@
 		function get(){
 			$query = "SELECT * FROM ".$this->table;
 			if($this->id != null)
-				$query .= " where ".$this->primaryKey." = ".$this->id;
+				$query .= " where ".$this->primaryKey." = ?";
 			$sth = $this->dbh->prepare($query);
-			$sth->execute();
+			$sth->execute(array($this->id));
 			$result = $sth->fetchAll();
 			return $result;
 
@@ -58,9 +58,9 @@
 		 */
 		function getLast($num){
 			$query = "SELECT * FROM ".$this->table;
-			$query .= " ORDER BY ".$this->primaryKey." DESC LIMIT 0,".$num;
+			$query .= " ORDER BY ".$this->primaryKey." DESC LIMIT 0, ?";
 			$sth = $this->dbh->prepare($query);
-			$sth->execute();
+			$sth->execute(array($num));
 			$result = $sth->fetchAll();
 			return $result;
 		}
@@ -72,9 +72,9 @@
 		 */
 		function getFirst($num){
 			$query = "SELECT * FROM ".$this->table;
-			$query .= " ORDER BY ".$this->primaryKey." ASC LIMIT 0,".$num;
+			$query .= " ORDER BY ".$this->primaryKey." ASC LIMIT 0, ?";
 			$sth = $this->dbh->prepare($query);
-			$sth->execute();
+			$sth->execute(array($num));
 			$result = $sth->fetchAll();
 			return $result;
 		}
@@ -90,27 +90,37 @@
 		 */
 		function getWhere($condition,$field=null,$line=null,$offset=0){
 			$query = 'SELECT ';
+			// @var array will contain execute parametres 
+			$exec_param = array();
 			// add fields name to the query
+			// array will contain field0 , filed1 ... field$n
+			$fields_names = array();
+			// iniale fields counter 
 			if($field!=null){
 				foreach ($field as $value) {
-					$query .= $value.', ';
+					$query .= "$value , ";
 				}
 				$query = substr($query, 0, strlen($query)-2);
 			}else
 				$query .=' *';
+
 			$query .= " FROM ".$this->table." WHERE ";
 			// add conditions
 			foreach ($condition as $key => $value) {
-				$query .= "$key = '$value' AND ";
+				$query .= $key.' = ? AND ';
+				$exec_param[] = $value;
 			}
 			$query = substr($query, 0,strlen($query)-4);
 			// check the id if is set or not
-			if($this->id != null)
-				$query .= ' AND '.$this->primaryKey.' = '.$this->id;
-			elseif($line!=null)
-					$query .= ' LIMIT '.$offset.', '.$line;
+			if($this->id != null){
+				$query .= ' AND '.$this->primaryKey.' = ? ';
+				$exec_param[] = $this->id;
+			}
+			elseif($line!=null){
+					$query .= " LIMIT $offset , $line";
+			}
 			$sth = $this->dbh->prepare($query);
-			$sth->execute();
+			$sth->execute($exec_param);
 			$result = $sth->fetchAll();
 			return $result;
 		}
@@ -152,13 +162,13 @@
 			$values = " VALUES(";
 			foreach ($data as $key => $value) {
 				$struct .= "$key,";
-				$values .= "'$value',"; 
+				$values .= ":$key,"; 
 			}
 			$struct = substr($struct, 0, strlen($struct)-1).")";
 			$values = substr($values, 0, strlen($values)-1).")";
 			$query .= $struct.$values;
 			$sth = $this->dbh->prepare($query);
-			$sth->execute();
+			$sth->execute($data);
 		}
 		/**
 		 * @param array condition @see getWhere() 
@@ -166,8 +176,37 @@
 		 */
 
 		function getRowsNumber($condition=array('1' => '1')){
-			$re = $this->getWhere($condition, array('count(*)'));
+			$query = "select count(*) from ".$this->table." WHERE";
+			$values = array();
+			foreach ($condition as $key => $value) {
+				$query .= " $key = ? AND ";
+				$values[] = $value;
+			}
+			$query = substr($query, 0, strlen($query)-4);
+			$stmt = $this->dbh->prepare($query);
+			$stmt->execute($values);
+			$re = $stmt->fetchAll();
 			return $re[0][0];
+		}
+		/**
+		 *
+		 *
+		 */
+		function delete($condition=array('1' => '1')){
+			$query = "delete from ".$this->table." WHERE";
+			$values = array();
+			foreach ($condition as $key => $value) {
+				$query .= " $key = ? AND ";
+				$values[] = $value;
+			}
+			$query = substr($query, 0, strlen($query)-4);
+			if($this->id != null){
+				$query .= ' AND '.$this->primaryKey.' = ? ';
+				$values[] = $this->id;
+
+			}
+			$stmt = $this->dbh->prepare($query);
+			$stmt->execute($values);
 		}
 
 		/**
