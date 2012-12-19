@@ -2,11 +2,8 @@
 
 	/**
 	 * @author Amine KABAB
+	 * @link http://www.github.com/kabab/Model
 	 *
-	 * get(), getLast(), getById(int $id), getWhere(array $condition);
-	 * updateById();
-	 * add(array(data));
-	 * 
 	 */
 	require_once('database.php');
 	abstract class Model extends Database{
@@ -20,7 +17,24 @@
 		* Primary key field name 
 		* @var string
 		*/
+
 		protected $primaryKey = 'id';
+		/**
+		 * $validate = array('fieldname' => array(
+		 *						'rule'=>'alpha',
+		 *						'max'=>7,  // Max charactere number
+		 *						'min'=>3, // Min charactere number 
+		 *						'rquired'=>false, // don't validate is the field empty
+		 *						'msg' => 'The field must have at minimum 3 characteres'
+		 *					),
+		 *					'fieldname' => array(
+		 *						'rule'=>'numeric',
+		 *						'max'=>7, // Max number  
+		 *						'min'=>3, // Min number 
+		 *						'rquired'=>false;
+		 *					));
+		 */
+		public $validate = null;
 
 		/**
 		 * When you set a value to this variable the get() function
@@ -198,7 +212,12 @@
 			return $re[0][0];
 		}
 		/**
-		 *
+		 * delete a row if id is defined the method will delete 
+		 * the row with the specific is else it will delete all rows
+		 * you can add an array that conatin condition of the rows
+		 * that you wish to remove
+		 * @param array conditions 
+		 * @return boolean true on success o false on failure
 		 *
 		 */
 		function delete($condition=array('1' => '1')){
@@ -215,7 +234,7 @@
 
 			}
 			$stmt = $this->dbh->prepare($query);
-			$stmt->execute($values);
+			return $stmt->execute($values);
 		}
 
 		/**
@@ -235,4 +254,91 @@
 			$this->page_num = ceil($this->getRowsNumber()/ $row);
 			return $this->getWhere($condition,$field,$row,$offset);
 		}
+
+		/**
+		 * 
+		 * @param array that contian data that you wish to add
+		 * @return 	array an empty array if data is valide else 
+		 *			will return an assoc array that contain the 
+		 *			name of the field and his error msg 
+		 *			(fieldname => errorMsg)
+		 *
+		 */
+
+		function valide($data){
+			$error_msg = array();
+			foreach ($this->validate as $key => $value) {
+				$str = $data[$key];
+				$error = false;
+				if(empty($str) && !$value['required'])
+					break;
+				foreach ($value as $typecond => $cond) {
+					if(!$this->_valide($str,$typecond,$cond)){
+						echo $typecond;
+						$error = true;
+						break;
+					}
+				}
+				if($error)
+					$error_msg[$key] = $value['msg'];
+			}
+			return $error_msg;
+		}
+		/**
+		 *
+		 *
+		 *
+		 */
+		private function _valide($str,$typecond, $cond){
+			switch ($typecond) {
+				case 'rule':
+					return $this->pattern($str,$cond);
+				case 'max':
+					return strlen($str) <= $cond;
+				case 'min':
+					return strlen($str) >= $cond;
+				case 'required':
+					return !empty($str)+!$cond;
+				case 'msg':
+					return true;
+				default:
+					return false;
+					break;
+			}
+		}
+		/**
+		 * @param string $str 
+		 * @param string $rule (email | numeric | date | alphanumeric | alpha | name )
+		 */
+		private function pattern($str,$rule){
+			switch ($rule) {
+				case 'email':
+					$pattern = "/^[[:alnum:]\_\-]+@[[:alnum:]\_\-]+\.[[:alnum:]]{1,3}$/";
+					break;
+				case 'numeric':
+					$pattern = "/^\d+$/";
+					break;
+				case 'date':
+					$pattern = "/^\d{2,4}(\-|\/)(1[0-2]|[1-9])(\-|\/)([0-2]\d|3[01]|[1-9])$/";
+					break;
+				case 'alphanumeric':
+					$pattern = "/^[[:alnum:]]+$/";
+					break;
+				case 'alpha': 
+					$pattern = "/^[[:alpha:]]+$/"; 
+					break;
+				case 'name':
+					$pattern = "/^[[:alpha:]\s]+$/";
+					break;
+				default:
+					return 0;
+			}
+
+			if(preg_match($pattern, $str))
+				return 1;
+			else 
+				return 0;
+		}
+
+		
 	}
